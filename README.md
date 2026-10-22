@@ -38,6 +38,7 @@ are made.
 
     -w width      Change default page width          [67]
     -o charset    Change default output charset      [UTF-8]
+    -Q seconds    Max time to receive a selector     [60, 0 disables]
 
     -s seconds    Session timeout in seconds         [1800]
     -i hits       Maximum hits until throttling      [4096]

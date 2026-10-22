@@ -4,6 +4,9 @@ Description=Gophernicus gopher server
 [Socket]
 ListenStream=70
 Accept=yes
+MaxConnections=64
+# Do not set MaxConnectionsPerSource here: stunnel/HAProxy may make every
+# visitor appear to systemd as the same loopback source address.
 
 [Install]
 WantedBy=sockets.target

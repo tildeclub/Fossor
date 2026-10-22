@@ -1,5 +1,6 @@
 [Unit]
 Description=Gophernicus gopher server
+CollectMode=inactive-or-failed
 
 [Service]
 EnvironmentFile=-@DEFAULT@/gophernicus

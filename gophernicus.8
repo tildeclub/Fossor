@@ -17,6 +17,7 @@
 .Op Fl l Ar file
 .Op Fl w Ar width
 .Op Fl o Ar charset
+.Op Fl Q Ar seconds
 .Op Fl s Ar seconds
 .Op Fl i Ar hits
 .Op Fl k Ar KiB
@@ -114,6 +115,10 @@ or
 .Ar ISO-9959-1 .
 The default is
 .Ar UTF-8 .
+.It Fl Q Ar seconds
+Maximum time to receive a selector on an accepted TCP connection.
+The default is 60 seconds. Set 0 to disable this timeout.
+This timeout does not apply while running CGI scripts or executable gophermaps.
 .It Fl s Ar seconds
 Session timeout in seconds.
 The default is 1800.

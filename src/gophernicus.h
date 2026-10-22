@@ -304,6 +304,7 @@ typedef struct {
     /* Request */
     char req_selector[BUFSIZE];
     char req_realpath[BUFSIZE];
+    int req_fd;                 /* Pinned Linux target; -1 when unavailable */
     char req_query_string[BUFSIZE];
     char req_search[BUFSIZE];
     char req_referrer[BUFSIZE];
@@ -351,6 +352,7 @@ typedef struct {
 #endif
 
     /* Session */
+    int request_timeout;       /* Maximum time to receive a selector */
     int session_timeout;
     int session_max_kbytes;
     int session_max_hits;

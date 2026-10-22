@@ -27,6 +27,11 @@
  */
 
 
+#ifdef __linux__
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#endif
 #include "gophernicus.h"
 
 
@@ -272,11 +277,21 @@ char gopher_filetype(state *st, char *file, char magic)
 	/* Are we allowed to look inside files? */
 	if (!magic) return st->default_filetype;
 
-	/* Read data from the file */
-	if ((fp = fopen(file , "r")) == NULL) return st->default_filetype;
-	i = fread(buf, 1, sizeof(buf) - 1, fp);
+	/* Magic sniffing must use the same inode checked by main. pread()
+	 * leaves the file offset unchanged for the eventual response. */
+#ifdef __linux__
+	if (st->req_fd >= 0 && strcmp(file, st->req_realpath) == 0) {
+		ssize_t got = pread(st->req_fd, buf, sizeof(buf) - 1, 0);
+		if (got <= 0) return st->default_filetype;
+		i = (int)got;
+	} else
+#endif
+	{
+		if ((fp = fopen(file, "r")) == NULL) return st->default_filetype;
+		i = fread(buf, 1, sizeof(buf) - 1, fp);
+		fclose(fp);
+	}
 	buf[i] = '\0';
-	fclose(fp);
 
 	/* GIF images */
 	if (sstrncmp(buf, "GIF89a") == MATCH ||

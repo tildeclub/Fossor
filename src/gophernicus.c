@@ -27,7 +27,15 @@
  */
 
 
+#ifdef __linux__
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#endif
 #include "gophernicus.h"
+#ifdef __linux__
+#include <fcntl.h>
+#endif
 
 
 /*
@@ -227,11 +235,73 @@ void log_combined(state *st, int status)
  * Check the final target (including symlinks) against its selected document root.
  * Resolve the requested path once, and use that result for subsequent opens.
  */
+#ifdef __linux__
+/*
+ * Walk the canonical name from an already opened document root. Each
+ * component is opened with O_NOFOLLOW, so a directory replacement cannot
+ * redirect this request outside the root. Intermediate O_PATH descriptors
+ * require search permission but not directory-read permission (e.g. 0711
+ * home directories). Absolute or relative symlinks that resolve within the
+ * permitted root still work: realpath() resolves them before this walk.
+ */
+static int open_rooted_file(const char *root, const char *path)
+{
+	int parent, next;
+	const char *part = path + strlen(root);
+	const char *slash;
+	char component[NAME_MAX + 1];
+	size_t len;
+
+	if (*part == '/') part++;
+	parent = open(root, O_PATH | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+	if (parent < 0) return -1;
+
+	if (*part == '\0') {
+		next = openat(parent, ".", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+		close(parent);
+		return next;
+	}
+
+	while (*part) {
+		slash = strchr(part, '/');
+		len = slash ? (size_t)(slash - part) : strlen(part);
+		if (len == 0 || len > NAME_MAX) {
+			close(parent);
+			errno = ENAMETOOLONG;
+			return -1;
+		}
+		memcpy(component, part, len);
+		component[len] = '\0';
+
+		if (slash) {
+			next = openat(parent, component,
+				O_PATH | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+		} else {
+			/* Nonblocking open avoids hanging on FIFOs. Other special
+			 * files are rejected by the existing regular-file check. */
+			next = openat(parent, component,
+				O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
+		}
+		close(parent);
+		if (next < 0) return -1;
+		parent = next;
+		if (!slash) return parent;
+		part = slash + 1;
+	}
+	close(parent);
+	errno = EINVAL;
+	return -1;
+}
+#endif
+
 static void restrict_to_root(state *st, const char *root)
 {
 	char resolved_root[PATH_MAX];
 	char resolved_path[PATH_MAX];
 	size_t len;
+#ifdef __linux__
+	int fd;
+#endif
 
 	if (realpath(root, resolved_root) == NULL ||
 		realpath(st->req_realpath, resolved_path) == NULL)
@@ -245,6 +315,13 @@ static void restrict_to_root(state *st, const char *root)
 	if (strlen(resolved_path) >= sizeof(st->req_realpath))
 		die(st, ERR_ACCESS, "Resolved path is too long");
 
+#ifdef __linux__
+	/* Do not reopen the original selector, which may now point elsewhere. */
+	fd = open_rooted_file(resolved_root, resolved_path);
+	if (fd < 0) die(st, ERR_ACCESS, "Unable to safely open requested path");
+	if (st->req_fd >= 0) close(st->req_fd);
+	st->req_fd = fd;
+#endif
 	sstrlcpy(st->req_realpath, resolved_path);
 }
 
@@ -536,6 +613,7 @@ static void init_state(state *st)
 	/* Request */
 	strclear(st->req_selector);
 	strclear(st->req_realpath);
+	st->req_fd = -1;
 	strclear(st->req_query_string);
 	strclear(st->req_search);
 	strclear(st->req_referrer);
@@ -585,6 +663,7 @@ static void init_state(state *st)
 
 
 	/* Session */
+	st->request_timeout = 60;
 	st->session_timeout = DEFAULT_SESSION_TIMEOUT;
 	st->session_max_kbytes = DEFAULT_SESSION_MAX_KBYTES;
 	st->session_max_hits = DEFAULT_SESSION_MAX_HITS;
@@ -805,10 +884,18 @@ int main(int argc, char *argv[])
 #endif
 		platform(&st);
 
-	/* Read selector */
+	/* Bound the whole selector read, including slow-drip clients. The
+	 * alarm is disarmed before any CGI or dynamic gophermap is executed. */
 get_selector:
+	if (st.request_timeout > 0) {
+		struct sockaddr_storage peer;
+		socklen_t peerlen = sizeof(peer);
+		if (getpeername(STDIN_FILENO, (struct sockaddr *)&peer, &peerlen) == 0)
+			alarm((unsigned int)st.request_timeout);
+	}
 	if (fgets(selector, sizeof(selector) - 1, stdin) == NULL)
 		strclear(selector);
+	alarm(0);
 
 	/* Remove trailing CRLF */
 	chomp(selector);
@@ -951,7 +1038,13 @@ get_selector:
 	selector_to_path(&st);
 	log_debug("path to resource is \"%s\"", st.req_realpath);
 
+	/* Check the pinned inode rather than following the pathname again. */
+#ifdef __linux__
+	if ((st.req_fd >= 0 ? fstat(st.req_fd, &file) :
+		stat(st.req_realpath, &file)) == ERROR) {
+#else
 	if (stat(st.req_realpath, &file) == ERROR) {
+#endif
 
 		/* Handle virtual /caps.txt requests */
 		if (st.opt_caps && sstrncmp(st.req_selector, CAPS_TXT) == MATCH) {
@@ -987,12 +1080,17 @@ get_selector:
 	if (st.req_filetype == TYPE_MENU && strlast(st.req_selector) != '/')
 		sstrlcat(st.req_selector, "/");
 
-	/* Change directory to wherever the resource was */
+	/* Directory requests use the pinned directory, even if renamed. */
 	sstrlcpy(buf, st.req_realpath);
 
 	if ((file.st_mode & S_IFMT) != S_IFDIR) c = dirname(buf);
 	else c = buf;
 
+#ifdef __linux__
+	if (st.req_fd >= 0 && (file.st_mode & S_IFMT) == S_IFDIR) {
+		if (fchdir(st.req_fd) == ERROR) die(&st, ERR_ACCESS, "");
+	} else
+#endif
 	if (chdir(c) == ERROR) die(&st, ERR_ACCESS, "");
 
 	/* Keep count of hits and data transfer */

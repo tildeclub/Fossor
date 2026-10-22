@@ -42,9 +42,12 @@ void send_binary_file(state *st)
 
 	log_debug("send binary file \"%s\"", st->req_realpath);
 
-	if ((fd = open(st->req_realpath, O_RDONLY)) == ERROR) return;
+	if (st->req_fd >= 0) {
+		/* sendfile() takes an explicit offset, leaving the pinned fd intact. */
+		fd = st->req_fd;
+	} else if ((fd = open(st->req_realpath, O_RDONLY)) == ERROR) return;
 	sendfile(1, fd, &offset, st->req_filesize);
-	close(fd);
+	if (fd != st->req_fd) close(fd);
 
 	/* More compatible POSIX fread()/fwrite() version */
 #else
@@ -54,7 +57,13 @@ void send_binary_file(state *st)
 
 	log_debug("send binary file \"%s\"", st->req_realpath);
 
-	if ((fp = fopen(st->req_realpath , "r")) == NULL) return;
+	if (st->req_fd >= 0) {
+		int copy = dup(st->req_fd);
+		if (copy < 0) return;
+		fp = fdopen(copy, "r");
+		if (fp == NULL) close(copy);
+	} else fp = fopen(st->req_realpath, "r");
+	if (fp == NULL) return;
 	while ((bytes = fread(buf, 1, sizeof(buf), fp)) > 0)
 		fwrite(buf, bytes, 1, stdout);
 	fclose(fp);
@@ -74,7 +83,13 @@ void send_text_file(state *st)
 
 	log_debug("sending text file \"%s\"", st->req_realpath);
 
-	if ((fp = fopen(st->req_realpath , "r")) == NULL) return;
+	if (st->req_fd >= 0) {
+		int copy = dup(st->req_fd);
+		if (copy < 0) return;
+		fp = fdopen(copy, "r");
+		if (fp == NULL) close(copy);
+	} else fp = fopen(st->req_realpath, "r");
+	if (fp == NULL) return;
 
 	/* Loop through the file line by line */
 	line = 0;

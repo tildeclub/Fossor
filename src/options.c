@@ -105,7 +105,7 @@ void parse_args(state *st, int argc, char *argv[])
 #ifdef __OpenBSD__
 		"U:" /* extra unveil(2) paths are OpenBSD only */
 #endif
-		"h:p:T:r:t:g:a:c:u:m:l:w:o:s:i:k:f:e:R:D:L:A:P:n:dbv?-")) != ERROR) {
+		"h:p:T:r:t:g:a:c:u:m:l:w:o:s:i:k:f:e:R:D:L:A:P:Q:n:dbv?-")) != ERROR) {
 		switch(opt) {
 			case 'h': sstrlcpy(st->server_host, optarg); break;
 			case 'P':
@@ -127,6 +127,20 @@ void parse_args(state *st, int argc, char *argv[])
 				break;
 			case 'p': st->server_port = atoi(optarg); break;
 			case 'T': st->server_tls_port = atoi(optarg); break;
+			case 'Q': {
+				char *end;
+				long seconds;
+
+				errno = 0;
+				seconds = strtol(optarg, &end, 10);
+				if (errno || *optarg == '\0' || *end != '\0' ||
+					seconds < 0 || seconds > 3600) {
+					fputs("Invalid request timeout (0-3600 seconds)\n", stderr);
+					exit(EXIT_FAILURE);
+				}
+				st->request_timeout = (int)seconds;
+				break;
+			}
 			case 'r': sstrlcpy(st->server_root, optarg); break;
 			case 't': st->default_filetype = *optarg; break;
 			case 'g': sstrlcpy(st->map_file, optarg); break;
