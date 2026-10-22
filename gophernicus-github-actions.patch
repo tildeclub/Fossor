@@ -1,0 +1,339 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..726e5bd
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,61 @@
++name: CI
++
++on:
++  push:
++    branches: [master]
++  pull_request:
++  workflow_dispatch:
++
++permissions:
++  contents: read
++
++jobs:
++  build:
++    name: ${{ matrix.runner }} / ${{ matrix.compiler }}
++    runs-on: ${{ matrix.runner }}
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++          - runner: ubuntu-24.04
++            compiler: gcc
++            listener: systemd,inetd,xinetd
++          - runner: ubuntu-24.04
++            compiler: clang
++            listener: systemd,inetd,xinetd
++          - runner: macos-15-intel
++            compiler: clang
++            listener: mac
++          - runner: macos-15
++            compiler: clang
++            listener: mac
++    env:
++      CC: ${{ matrix.compiler }}
++      HOSTCC: ${{ matrix.compiler }}
++
++    steps:
++      - uses: actions/checkout@v4
++
++      - name: Install Linux dependencies
++        if: runner.os == 'Linux'
++        run: |
++          sudo apt-get update
++          sudo apt-get install -y libwrap0-dev
++
++      # configure uses GNU sed's in-place syntax.
++      - name: Install GNU sed on macOS
++        if: runner.os == 'macOS'
++        run: |
++          brew install gnu-sed
++          echo "$(brew --prefix gnu-sed)/libexec/gnubin" >> "$GITHUB_PATH"
++
++      - name: Configure
++        env:
++          LISTENER: ${{ matrix.listener }}
++        run: ./configure --listener="$LISTENER" --hostname=localhost
++
++      - name: Build
++        run: make -j2
++
++      - name: Smoke tests
++        run: sh tests/smoke.sh
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+new file mode 100644
+index 0000000..f69e4d7
+--- /dev/null
++++ b/.github/workflows/release.yml
+@@ -0,0 +1,108 @@
++name: Release binaries
++
++on:
++  release:
++    types: [published]
++
++permissions:
++  contents: read
++
++concurrency:
++  group: release-${{ github.event.release.tag_name }}
++  cancel-in-progress: false
++
++jobs:
++  build:
++    name: ${{ matrix.name }}
++    runs-on: ${{ matrix.runner }}
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++          - name: linux-x86_64
++            runner: ubuntu-24.04
++            listener: systemd,inetd,xinetd
++          - name: linux-aarch64
++            runner: ubuntu-24.04-arm
++            listener: systemd,inetd,xinetd
++          - name: macos-x86_64
++            runner: macos-15-intel
++            listener: mac
++          - name: macos-arm64
++            runner: macos-15
++            listener: mac
++
++    steps:
++      - uses: actions/checkout@v4
++        with:
++          ref: ${{ github.event.release.tag_name }}
++
++      - name: Install GNU sed on macOS
++        if: runner.os == 'macOS'
++        run: |
++          brew install gnu-sed
++          echo "$(brew --prefix gnu-sed)/libexec/gnubin" >> "$GITHUB_PATH"
++
++      - name: Set binary version from release tag
++        shell: bash
++        run: |
++          version="${GITHUB_REF_NAME#v}"
++          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
++            echo "Release tags must use vX.Y.Z or vX.Y.Z-suffix" >&2
++            exit 1
++          fi
++          sed -i -E "s/^VERSION[[:space:]]*=.*/VERSION  = ${version}/" Makefile.in
++
++      - name: Configure
++        env:
++          LISTENER: ${{ matrix.listener }}
++        run: ./configure --listener="$LISTENER" --hostname=localhost
++
++      - name: Build
++        run: make -j2
++
++      - name: Smoke tests
++        run: sh tests/smoke.sh
++
++      - name: Package binary
++        shell: bash
++        env:
++          TARGET: ${{ matrix.name }}
++        run: |
++          package="gophernicus-${GITHUB_REF_NAME}-${TARGET}"
++          mkdir -p "dist/${package}"
++          cp src/gophernicus LICENSE README.md INSTALL.md gophernicus.8 "dist/${package}/"
++          tar -czf "dist/${package}.tar.gz" -C dist "$package"
++          rm -rf "dist/${package}"
++
++      - uses: actions/upload-artifact@v4
++        with:
++          name: binary-${{ matrix.name }}
++          path: dist/*.tar.gz
++          if-no-files-found: error
++          retention-days: 7
++
++  publish:
++    name: Attach release assets
++    runs-on: ubuntu-24.04
++    needs: build
++    permissions:
++      contents: write
++    steps:
++      - uses: actions/download-artifact@v4
++        with:
++          pattern: binary-*
++          path: dist
++          merge-multiple: true
++
++      - name: Generate SHA256SUMS
++        run: |
++          cd dist
++          sha256sum ./*.tar.gz > SHA256SUMS
++
++      - name: Upload to published release
++        env:
++          GH_TOKEN: ${{ github.token }}
++          GH_REPO: ${{ github.repository }}
++          RELEASE_TAG: ${{ github.event.release.tag_name }}
++        run: gh release upload "$RELEASE_TAG" dist/*.tar.gz dist/SHA256SUMS --clobber
+diff --git a/.travis.yml b/.travis.yml
+deleted file mode 100644
+index c3a0dc6..0000000
+--- a/.travis.yml
++++ /dev/null
+@@ -1,30 +0,0 @@
+-language: c
+-group: travis_latest
+-dist: bionic
+-
+-git:
+-  depth: false
+-  quiet: true
+-
+-os:
+-  - linux
+-  - osx
+-
+-compiler:
+-  - clang
+-  - gcc
+-
+-addons:
+-  apt:
+-    packages:
+-    - build-essential
+-    - fakeroot
+-    - libwrap0-dev
+-    - debhelper
+-
+-script:
+-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then ./configure --listener=systemd,inetd,xinetd --hostname=travis; fi
+-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ./configure --listener=mac --hostname=travis; fi
+-  - make
+-  - sudo make install
+-  - .travis/test.sh
+diff --git a/.travis/test.sh b/.travis/test.sh
+deleted file mode 100755
+index a76cb8a..0000000
+--- a/.travis/test.sh
++++ /dev/null
+@@ -1,19 +0,0 @@
+-#!/bin/bash
+-
+-if uname | grep -q 'Darwin' ; then
+-    # I do not have hardware to make this work on and am uninterested in
+-    # making another testsuite for travis Macs at this time
+-    exit 0
+-fi
+-
+-sudo cp .travis/test.gophermap /var/gopher/gophermap
+-sudo chmod 644 /var/gopher/gophermap
+-
+-echo -e "\n" | gophernicus -nf -nu -nv -nx -nf -nd > test.output
+-if ! cmp .travis/test.answer test.output ; then
+-    exit 1
+-fi
+-
+-if ! gophernicus -v | grep -q 'Gophernicus/3.1.1 "Dungeon Edition"' ; then
+-    exit 1
+-fi
+diff --git a/docs/CI.md b/docs/CI.md
+new file mode 100644
+index 0000000..91985d0
+--- /dev/null
++++ b/docs/CI.md
+@@ -0,0 +1,39 @@
++# CI and release builds
++
++GitHub Actions replaces the old Travis setup.
++
++- **CI:** runs for pushes to `master`, pull requests and manual dispatch. It
++  builds with GCC and Clang on Ubuntu, and Clang on Intel and Apple Silicon
++  macOS. The smoke test runs without installing the server or requiring root.
++- **Release binaries:** runs when a GitHub Release is **published**, including
++  a published prerelease. It checks out the release tag, builds on four native
++  runners, runs the smoke tests, and attaches the resulting `.tar.gz` archives
++  plus `SHA256SUMS` to that existing release. If a build fails, nothing is
++  uploaded by the publishing job.
++
++## Publishing
++
++1. Push the changes containing these workflows to `master` **before** making
++   a release. Ensure the release tag points to a commit containing them.
++2. Create a tag such as `v3.1.2` (or `v3.1.2-rc1`) and publish the GitHub
++   Release using that tag. Draft releases do not trigger the workflow until
++   published.
++3. The `Release binaries` workflow attaches four archives:
++   Linux x86-64, Linux ARM64, macOS Intel and macOS Apple Silicon. GitHub
++   supplies its standard source archives separately.
++
++The binary version is derived from the release tag **in the build workspace**;
++the workflow does not commit changes to the repository. Keep the version in
++`Makefile.in` up to date in normal development as well. These are dynamically
++linked binaries from GitHub's runners, not static binaries or installable OS
++packages. The macOS binaries are not signed or notarized.
++
++The release workflow uses the automatically provided `GITHUB_TOKEN` with
++`contents: write` permission for its publishing job only. No PAT or separate
++secret is needed. You can rerun failed jobs under **Actions** if a build fails.
++
++To run the smoke tests locally after `./configure` and `make`:
++
++```sh
++sh tests/smoke.sh
++```
+diff --git a/tests/smoke.sh b/tests/smoke.sh
+new file mode 100755
+index 0000000..f0a066c
+--- /dev/null
++++ b/tests/smoke.sh
+@@ -0,0 +1,38 @@
++#!/bin/sh
++# Small regression test for the shipped server, without installing it.
++set -eu
++cd "$(dirname "$0")/.."
++
++tmpdir=$(mktemp -d)
++trap 'rm -rf "$tmpdir"' EXIT HUP INT TERM
++chmod 755 "$tmpdir"
++cp tests/test.gophermap "$tmpdir/gophermap"
++chmod 644 "$tmpdir/gophermap"
++
++# Keep the original Travis fixture and expected output (including CRLF).
++printf '\r\n' | ./src/gophernicus -r "$tmpdir" -h localhost \
++    -nf -nu -nv -nx -nd -nm -ns -Q 10 > "$tmpdir/output"
++cmp tests/test.answer "$tmpdir/output"
++
++./src/gophernicus -v | grep -q '^Gophernicus/'
++
++# Check that executable gophermaps still work.
++cat > "$tmpdir/gophermap" <<'MAP'
++#!/bin/sh
++printf 'Dynamic\n'
++MAP
++chmod 755 "$tmpdir/gophermap"
++printf '\r\n' | ./src/gophernicus -r "$tmpdir" -h localhost \
++    -nf -nu -nv -nd -nm -ns -Q 10 > "$tmpdir/output"
++grep -q '^iDynamic' "$tmpdir/output"
++
++# A gophermap '=' entry is intentionally allowed to run a shell command.
++cat > "$tmpdir/gophermap" <<'MAP'
++=printf 'Shell include\n'
++MAP
++chmod 644 "$tmpdir/gophermap"
++printf '\r\n' | ./src/gophernicus -r "$tmpdir" -h localhost \
++    -nf -nu -nv -nd -nm -ns -Q 10 > "$tmpdir/output"
++grep -q '^iShell include' "$tmpdir/output"
++
++echo 'Smoke tests passed'
+diff --git a/.travis/test.answer b/tests/test.answer
+similarity index 100%
+rename from .travis/test.answer
+rename to tests/test.answer
+diff --git a/.travis/test.gophermap b/tests/test.gophermap
+similarity index 100%
+rename from .travis/test.gophermap
+rename to tests/test.gophermap
