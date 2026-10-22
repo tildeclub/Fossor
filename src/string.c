@@ -58,26 +58,33 @@ void strreplace(char *str, char from, char to)
  */
 size_t strcut(char *str, size_t width)
 {
-	unsigned char c = '\0';
-	int w = 0;
-	int i;
+	char *cursor = str;
+	size_t count = 0;
 
-	while (width-- && (c = *str++)) {
-		if (c >= 0x80 && (*str & 0xc0) == 0x80) {
-			i = 0;
+	while (*cursor && count < width) {
+		unsigned char c = (unsigned char)*cursor;
+		size_t bytes = 1;
+		size_t i;
 
-			if ((c & 0xf8) == 0xf0) i = 3;
-			else if ((c & 0xf0) == 0xe0) i = 2;
-			else if ((c & 0xe0) == 0xc0) i = 1;
+		if ((c & 0xf8) == 0xf0) bytes = 4;
+		else if ((c & 0xf0) == 0xe0) bytes = 3;
+		else if ((c & 0xe0) == 0xc0) bytes = 2;
 
-			while (i--) if (!*str++) break;
+		/* An incomplete sequence must not advance beyond the NUL byte. */
+		for (i = 1; i < bytes; i++) {
+			unsigned char next = (unsigned char)cursor[i];
+			if (next == '\0' || (next & 0xc0) != 0x80) {
+				bytes = 1;
+				break;
+			}
 		}
 
-		w++;
+		cursor += bytes;
+		count++;
 	}
 
-	if (c) *str = '\0';
-	return w;
+	if (count == width) *cursor = '\0';
+	return count;
 }
 
 

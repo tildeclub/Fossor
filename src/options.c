@@ -144,8 +144,8 @@ void parse_args(state *st, int argc, char *argv[])
 				break;
 
 			case 's': st->session_timeout = atoi(optarg); break;
-			case 'i': st->session_max_kbytes = abs(atoi(optarg)); break;
-			case 'k': st->session_max_hits = abs(atoi(optarg)); break;
+			case 'i': st->session_max_hits = abs(atoi(optarg)); break;
+			case 'k': st->session_max_kbytes = abs(atoi(optarg)); break;
 
 			case 'f': sstrlcpy(st->filter_dir, optarg); break;
 			case 'e': add_ftype_mapping(st, optarg); break;
@@ -219,7 +219,7 @@ void parse_args(state *st, int argc, char *argv[])
 
 		if ((fp = fopen(st->server_location , "r"))) {
 			if (fgets(st->server_location, sizeof(st->server_location), fp) == NULL)
-				strclear(st->server_description);
+				strclear(st->server_location);
 
 			chomp(st->server_location);
 			fclose(fp);

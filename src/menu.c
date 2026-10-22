@@ -53,8 +53,12 @@ static int foldersort(const void *a, const void *b)
  */
 int datesort(const void *a, const void *b)
 {
-	if (((user_date *)a)->mtime > ((user_date *)b)->mtime) return -1;
-	else return 1;
+	const user_date *first = a;
+	const user_date *second = b;
+
+	if (first->mtime > second->mtime) return -1;
+	if (first->mtime < second->mtime) return 1;
+	return strcmp(first->user, second->user);
 }
 
 
@@ -73,14 +77,18 @@ static int sortdir(char *path, sdirent *list, int max)
 	if ((dp = opendir(path)) == NULL) return 0;
 	i = 0;
 
-	/* Loop through the directory & stat() everything */
-	while (max--) {
-		if ((d = readdir(dp)) == NULL) break;
+	/* Count valid entries, not just the first max directory records. */
+	while (i < max && (d = readdir(dp)) != NULL) {
+		int n;
 
-		snprintf(buf, sizeof(buf), "%s/%s", path, d->d_name);
+		/* These entries never belong in generated menus. */
+		if (d->d_name[0] == '.') continue;
+		if (strlen(d->d_name) >= sizeof(list[i].name)) continue;
+
+		n = snprintf(buf, sizeof(buf), "%s/%s", path, d->d_name);
+		if (n < 0 || (size_t)n >= sizeof(buf)) continue;
 		if (stat(buf, &s) == ERROR) continue;
 
-		if (strlen(d->d_name) > sizeof(list[i].name)) continue;
 		sstrlcpy(list[i].name, d->d_name);
 
 		list[i].mode  = s.st_mode;
@@ -651,7 +659,8 @@ void gopher_menu(state *st)
 		strnencode(encodedname, dir[i].name, sizeof(encodedname));
 
 		/* Handle inline .gophermap */
-		if (strstr(displayname, st->map_file) > displayname) {
+		c = strstr(displayname, st->map_file);
+		if (c != NULL && c > displayname) {
 			gophermap(st, pathname, 0);
 			continue;
 		}
