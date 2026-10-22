@@ -1,5 +1,5 @@
 /*
- * Gophernicus
+ * Fossor
  *
  * Copyright (c) 2009-2018 Kim Holviala <kimholviala@fastmail.com>
  * Copyright (c) 2019 Gophernicus Developers <gophernicus@gophernicus.org>
@@ -26,8 +26,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef _GOPHERNICUS_H
-#define _GOPHERNICUS_H
+#ifndef _FOSSOR_H
+#define _FOSSOR_H
 
 
 /*
@@ -249,12 +249,12 @@ size_t strlcat(char *dst, const char *src, size_t siz);
 #define ERROR_PREFIX    "Error: "
 
 /* Strings */
-#define SERVER_SOFTWARE    "Gophernicus"
+#define SERVER_SOFTWARE    "Fossor"
 #define SERVER_SOFTWARE_FULL SERVER_SOFTWARE "/" VERSION " (%s)"
-#define PROGNAME             "gophernicus"
+#define PROGNAME             "fossor"
 
 #define HEADER_FORMAT    "[%s]"
-#define FOOTER_FORMAT    "Gophered by Gophernicus/" VERSION " on %s"
+#define FOOTER_FORMAT    "Gophered by Fossor/" VERSION " on %s"
 
 #define UNITS        "KB", "MB", "GB", "TB", "PB", NULL
 #define DATE_FORMAT    "%Y-%b-%d %H:%M"    /* See man 3 strftime */
@@ -383,7 +383,7 @@ typedef struct {
 /* Shared memory for session & accounting data */
 #ifdef HAVE_SHMEM
 
-#define SHM_KEY        0xbeeb0008    /* Unique identifier + struct version */
+#define SHM_KEY        0xbeeb0009    /* Unique identifier + struct version */
 #define SHM_MODE    0600        /* Access mode for the shared memory */
 #define SHM_SESSIONS    256        /* Max amount of user sessions to track */
 
@@ -447,7 +447,7 @@ typedef struct {
 #include "filetypes.h"
 
 
-/* gophernicus.c */
+/* fossor.c */
 void info(state *st, char *str, char type);
 void footer(state *st);
 void die(state *st, const char *message, const char *description);

@@ -1,3 +1,11 @@
+3.1.2 - Fossor
+=============
+
+ * Rename the maintained fork of Gophernicus to Fossor
+ * Improve path validation, connection handling and error recovery
+ * Correct directory scanning, UTF-8 handling and session options
+ * Replace Travis with GitHub Actions and automated release builds
+
 3.1.1
 =====
 

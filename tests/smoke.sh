@@ -10,11 +10,11 @@ cp tests/test.gophermap "$tmpdir/gophermap"
 chmod 644 "$tmpdir/gophermap"
 
 # Keep the original Travis fixture and expected output (including CRLF).
-printf '\r\n' | ./src/gophernicus -r "$tmpdir" -h localhost \
+printf '\r\n' | ./src/fossor -r "$tmpdir" -h localhost \
     -nf -nu -nv -nx -nd -nm -ns -Q 10 > "$tmpdir/output"
 cmp tests/test.answer "$tmpdir/output"
 
-./src/gophernicus -v | grep -q '^Gophernicus/'
+./src/fossor -v | grep -q '^Fossor/'
 
 # Check that executable gophermaps still work.
 cat > "$tmpdir/gophermap" <<'MAP'
@@ -22,7 +22,7 @@ cat > "$tmpdir/gophermap" <<'MAP'
 printf 'Dynamic\n'
 MAP
 chmod 755 "$tmpdir/gophermap"
-printf '\r\n' | ./src/gophernicus -r "$tmpdir" -h localhost \
+printf '\r\n' | ./src/fossor -r "$tmpdir" -h localhost \
     -nf -nu -nv -nd -nm -ns -Q 10 > "$tmpdir/output"
 grep -q '^iDynamic' "$tmpdir/output"
 
@@ -31,7 +31,7 @@ cat > "$tmpdir/gophermap" <<'MAP'
 =printf 'Shell include\n'
 MAP
 chmod 644 "$tmpdir/gophermap"
-printf '\r\n' | ./src/gophernicus -r "$tmpdir" -h localhost \
+printf '\r\n' | ./src/fossor -r "$tmpdir" -h localhost \
     -nf -nu -nv -nd -nm -ns -Q 10 > "$tmpdir/output"
 grep -q '^iShell include' "$tmpdir/output"
 

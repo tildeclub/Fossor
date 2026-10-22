@@ -1,14 +1,14 @@
-NAME     = gophernicus
+NAME     = fossor
 PACKAGE  = $(NAME)
 BINARY   = $(NAME)
-VERSION  = 3.1.1
+VERSION  = 3.1.2
 CODENAME = Dungeon Edition
 
 SOURCES = src/$(NAME).c src/file.c src/menu.c src/string.c src/platform.c src/session.c src/options.c src/log.c
 HEADERS = src/files.h src/filetypes.h
 OBJECTS = $(SOURCES:.c=.o)
 README  = README.md
-MANPAGE = gophernicus.8
+MANPAGE = fossor.8
 MAP     = gophermap
 
 DESTDIR ?= /
@@ -25,7 +25,7 @@ OSXROOT      = /Library/GopherServer
 
 INETD   = @INETD_CONF@
 XINETD  = @XINETD_CONF@
-# get OPTIONS line from gophernicus.env and use that also for inetd
+# get OPTIONS line from fossor.env and use that also for inetd
 INETOPT  = $$(grep '^OPTIONS=' init/$(NAME).env | tail -n 1 | sed -e 's/OPTIONS="*//;s/"*$$//')
 LAUNCHD  = @LAUNCHD@
 PLIST    = org.$(NAME).server.plist
@@ -88,7 +88,7 @@ install-msg:
 	echo "======================================================================"
 	echo
 	echo "If there were no errors shown above,"
-	echo "Gophernicus has now been succesfully installed."
+	echo "Fossor has now been succesfully installed."
 	echo
 	@INSTALL_MSG_INETD@
 	@INSTALL_MSG_XINETD@
@@ -113,9 +113,9 @@ install-msg-xinetd:
 	echo
 
 install-msg-systemd:
-	echo "Please enable and start gophernicus.socket using the commands:"
-	echo "    systemctl enable gophernicus.socket"
-	echo "    systemctl start gophernicus.socket"
+	echo "Please enable and start fossor.socket using the commands:"
+	echo "    systemctl enable fossor.socket"
+	echo "    systemctl start fossor.socket"
 	echo "to allow your gopher root to be accessed."
 	echo "You can configure arguments, including the hostname, in"
 	echo "$(DEFAULT)/$(NAME) or $(SYSCONF)/$(NAME)."
@@ -129,7 +129,7 @@ install-msg-osx:
 install-msg-haiku:
 	echo "Please reboot your computer to allow your gopher root to be accessed."
 	echo "You can configure arguments, including the hostname, in $(HAIKU_SRV)"
-	echo "under the gophernicus section."
+	echo "under the fossor section."
 	echo
 
 install-msg-final:
@@ -180,7 +180,7 @@ uninstall: @UNINSTALL_INETD_UPDATE@ @UNINSTALL_INETD_MANUAL@ @UNINSTALL_XINETD@ 
 	rm -f $(DESTDIR)$(MAN8DIR)/$(MANPAGE)
 
 uninstall-inetd-update:
-	update-inetd --remove "^gopher.*gophernicus"
+	update-inetd --remove "^gopher.*fossor"
 
 uninstall-inetd-manual:
 	sed -i '/^gopher/d' $(DESTDIR)$(INETD)

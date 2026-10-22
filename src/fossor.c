@@ -1,5 +1,5 @@
 /*
- * Gophernicus
+ * Fossor
  *
  * Copyright (c) 2009-2018 Kim Holviala <kimholviala@fastmail.com>
  * Copyright (c) 2019 Gophernicus Developers <gophernicus@gophernicus.org>
@@ -32,7 +32,7 @@
 #define _GNU_SOURCE
 #endif
 #endif
-#include "gophernicus.h"
+#include "fossor.h"
 #ifdef __linux__
 #include <fcntl.h>
 #endif
@@ -1008,7 +1008,7 @@ get_selector:
 	}
 	*dest = '\0';
 
-	/* Main query parameters compatibility with older versions of Gophernicus */
+	/* Main query parameters compatibility with older versions of Fossor */
 	if (*st.req_query_string && !*st.req_search) sstrlcpy(st.req_search, st.req_query_string);
 	if (!*st.req_query_string && *st.req_search) sstrlcpy(st.req_query_string, st.req_search);
 

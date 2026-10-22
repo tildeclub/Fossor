@@ -5,7 +5,7 @@ src/*.o
 src/files.h
 src/filetypes.h
 src/bin2c
-src/gophernicus
+src/fossor
 Makefile
 config.h
 

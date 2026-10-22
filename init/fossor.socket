@@ -1,5 +1,5 @@
 [Unit]
-Description=Gophernicus gopher server
+Description=Fossor gopher server
 
 [Socket]
 ListenStream=70

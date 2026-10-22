@@ -71,9 +71,9 @@ jobs:
         env:
           TARGET: ${{ matrix.name }}
         run: |
-          package="gophernicus-${GITHUB_REF_NAME}-${TARGET}"
+          package="fossor-${GITHUB_REF_NAME}-${TARGET}"
           mkdir -p "dist/${package}"
-          cp src/gophernicus LICENSE README.md INSTALL.md gophernicus.8 "dist/${package}/"
+          cp src/fossor LICENSE README.md INSTALL.md fossor.8 "dist/${package}/"
           tar -czf "dist/${package}.tar.gz" -C dist "$package"
           rm -rf "dist/${package}"
 

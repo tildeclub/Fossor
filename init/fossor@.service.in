@@ -1,10 +1,10 @@
 [Unit]
-Description=Gophernicus gopher server
+Description=Fossor gopher server
 CollectMode=inactive-or-failed
 
 [Service]
-EnvironmentFile=-@DEFAULT@/gophernicus
-EnvironmentFile=-@SYSCONFIG@/gophernicus
+EnvironmentFile=-@DEFAULT@/fossor
+EnvironmentFile=-@SYSCONFIG@/fossor
 ExecStart=@BINARY@ $OPTIONS
 SuccessExitStatus=1
 StandardInput=socket

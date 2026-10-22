@@ -1,4 +1,4 @@
-!Sample gophermap for Gophernicus
+!Sample gophermap for Fossor
 
 ##
 ## This is a sample gophermap.
@@ -56,7 +56,7 @@ Valid filetypes include:
    c   calendar file
    M   MIME file (mbox, emails etc)
 
-Additional type characters supported by Gophernicus:
+Additional type characters supported by Fossor:
    #          comment - rest of the line is ignored
    !title     menu title (use on the first line)
    -file      hide file from listings

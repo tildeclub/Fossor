@@ -17,7 +17,7 @@ usage() {
     printf "  --systemd=/lib/systemd/system			Path to systemd directory when using systemd listener\\n"
     printf "  --os=autodetected        Your target OS, one of linux, mac, haiku, netbsd, openbsd or freebsd\\n"
     printf "  --listener=somelistener   Program to receive and pass network requests; one or more of systemd, inetd, xinetd, comma-seperated, or autodetect, mac or haiku (parameter required, mac/haiku required on respective OSes)\\n"
-    printf "  --hostname=autodetected  Desired hostname for gophernicus to identify as\\n"
+    printf "  --hostname=autodetected  Desired hostname for fossor to identify as\\n"
 }
 
 # Set values for each option
@@ -198,7 +198,7 @@ for listener in ${listeners}; do
         xinetd)
             INSTALL_XINETD="install-xinetd"
             UNINSTALL_XINETD="uninstall-xinetd"
-            XINETD_CONF="/etc/xinetd.d/gophernicus"
+            XINETD_CONF="/etc/xinetd.d/fossor"
             INSTALL_MSG_XINETD='$(MAKE) install-msg-xinetd' ;;
         inetd)
             INSTALL_INETD="install-inetd"
@@ -355,18 +355,18 @@ printf "done\\n"
 
 # Also sub in $HOSTNAME to the various init systems (whether or not we really
 # use them, its just easier)
-for f in gophernicus.env haiku_snippet org.gophernicus.server.plist \
-    gophernicus.xinetd; do
+for f in fossor.env haiku_snippet org.fossor.server.plist \
+    fossor.xinetd; do
     printf "creating init/${f}... "
     sed -e "s:@HOSTNAME@:${HOSTNAME}:" "init/${f}.in" > "init/${f}"
     printf "done\\n"
 done
 
-# And generate gophernicus@.service
-printf "creating init/gophernicus@.service... "
+# And generate fossor@.service
+printf "creating init/fossor@.service... "
 sed -e "s:@DEFAULT@:${DEFAULTCONF}:" \
     -e "s:@SYSCONFIG@:${SYSCONFIG}:" \
-    'init/gophernicus@.service.in' > 'init/gophernicus@.service'
+    'init/fossor@.service.in' > 'init/fossor@.service'
 printf "done\\n"
 
 # Cleanup

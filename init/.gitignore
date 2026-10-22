@@ -1,6 +1,6 @@
 haiku_snippet
-org.gophernicus.server.plist
-gophernicus.xinetd
+org.fossor.server.plist
+fossor.xinetd
 inetlin
-gophernicus.env
-gophernicus@.service
+fossor.env
+fossor@.service

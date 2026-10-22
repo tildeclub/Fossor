@@ -6,6 +6,6 @@ service gopher
 	wait		= no
 	user		= nobody
 	server		= @BINARY@
-	server_args	= -r/var/gopher -h@HOSTNAME@
+	server_args	= -r/var/gopher -hdeepend-desktop
 	disable		= no
 }

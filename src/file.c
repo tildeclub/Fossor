@@ -1,5 +1,5 @@
 /*
- * Gophernicus
+ * Fossor
  *
  * Copyright (c) 2009-2018 Kim Holviala <kimholviala@fastmail.com>
  * Copyright (c) 2019 Gophernicus Developers <gophernicus@gophernicus.org>
@@ -27,7 +27,7 @@
  */
 
 
-#include "gophernicus.h"
+#include "fossor.h"
 
 
 /*
@@ -352,7 +352,7 @@ void setenv_cgi(state *st, char *script)
 #endif
 	setenv("HTTP_ACCEPT_CHARSET", strcharset(st->out_charset), 1);
 
-	/* Gophernicus extras */
+	/* Fossor extras */
 	snprintf(buf, sizeof(buf), "%c", st->req_filetype);
 	setenv("GOPHER_FILETYPE", buf, 1);
 	setenv("GOPHER_CHARSET", strcharset(st->out_charset), 1);

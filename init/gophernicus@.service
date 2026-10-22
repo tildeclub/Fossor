@@ -1,0 +1,11 @@
+[Unit]
+Description=Gophernicus gopher server
+CollectMode=inactive-or-failed
+
+[Service]
+EnvironmentFile=-/etc/default/gophernicus
+EnvironmentFile=-/etc/sysconfig/gophernicus
+ExecStart=@BINARY@ $OPTIONS
+SuccessExitStatus=1
+StandardInput=socket
+User=nobody

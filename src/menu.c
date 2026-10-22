@@ -1,5 +1,5 @@
 /*
- * Gophernicus
+ * Fossor
  *
  * Copyright (c) 2009-2018 Kim Holviala <kimholviala@fastmail.com>
  * Copyright (c) 2019 Gophernicus Developers <gophernicus@gophernicus.org>
@@ -32,7 +32,7 @@
 #define _GNU_SOURCE
 #endif
 #endif
-#include "gophernicus.h"
+#include "fossor.h"
 
 
 /*

@@ -1,7 +1,7 @@
 #include <stdarg.h>
 #include <syslog.h>
 
-#include "gophernicus.h"
+#include "fossor.h"
 
 #if defined(LOG_UPTO)
 #define _LOG_UPTO LOG_UPTO
@@ -71,7 +71,7 @@ void log_fatal(const char *fmt, ...)
 
 }
 
-#define _GOPHERNICUS_MK_LOG_FUNCTION(FCT_LVL, LOG_LVL)	\
+#define _FOSSOR_MK_LOG_FUNCTION(FCT_LVL, LOG_LVL)	\
 void FCT_LVL(const char *fmt, ...)			\
 {							\
 	va_list ap;					\
@@ -80,7 +80,7 @@ void FCT_LVL(const char *fmt, ...)			\
 	_vlog(LOG_LVL, fmt, ap);			\
 	va_end(ap);					\
 }
-_GOPHERNICUS_MK_LOG_FUNCTION(log_warning, LOG_WARNING)
-_GOPHERNICUS_MK_LOG_FUNCTION(log_info, LOG_INFO)
-_GOPHERNICUS_MK_LOG_FUNCTION(log_debug, LOG_DEBUG)
-#undef _GOPHERNICUS_MK_LOG_FUNCTION
+_FOSSOR_MK_LOG_FUNCTION(log_warning, LOG_WARNING)
+_FOSSOR_MK_LOG_FUNCTION(log_info, LOG_INFO)
+_FOSSOR_MK_LOG_FUNCTION(log_debug, LOG_DEBUG)
+#undef _FOSSOR_MK_LOG_FUNCTION

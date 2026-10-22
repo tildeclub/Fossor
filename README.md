@@ -1,27 +1,27 @@
-# Gophernicus
+# Fossor
 
-This release: Version DEVEL
-NOTE: The master branch is rolling Development! DO NOT USE unless you want fiery dragons! (you probably want to `git checkout 3.1.1`)
+This release: Version 3.1.2
+Fossor is an independently maintained fork of Gophernicus.
 
 *Copyright (c) 2009-2018 Kim Holviala*
 
 *Copyright (c) 2019 Gophernicus Developers*
 
-Gophernicus is a modern full-featured (and hopefully) secure gopher
+Fossor is a modern full-featured (and hopefully) secure gopher
 daemon. It is licensed under the BSD license.
 
 (If you are looking for installation documentation, please see INSTALL.md).
 
 ## Support/Contact
 
-Developers can be reached at gophernicus AT gophernicus DOT org.
+Development and bug reports: https://github.com/tildeclub/Fossor/issues
 
-Our IRC channel is on irc.libera.chat #gophernicus.
+Original project: https://github.com/gophernicus/gophernicus
 
-You most likely want to subscribe to the gophernicus mailing list at
-https://lists.tildeverse.org/postorius/lists/gophernicus.lists.tildeverse.org/,
-especially if you maintain a server. This is where all important announcements
-are made.
+The original copyright notices and contributor history have been retained.
+See [migration notes](docs/MIGRATION.md) before upgrading an existing installation.
+Site content, gophermaps and CGI behaviour remain compatible.
+
 
 ## Command line options
 
@@ -83,8 +83,8 @@ are made.
 
 ## Setting up a gopher site
 
-After succesfully installing Gophernicus (see [INSTALL](./INSTALL.md)) you need to set
-up the gopher root directory. By default Gophernicus serves documents
+After succesfully installing Fossor (see [INSTALL](./INSTALL.md)) you need to set
+up the gopher root directory. By default Fossor serves documents
 from /var/gopher so start by creating that directory and making sure
 it's world-readable. Then, simply add files and directories under your
 root, fire up a gopher browser (Firefox with the OverbiteFF extension,
@@ -98,12 +98,12 @@ instead of `HOSTNAME` - see INSTALL).
 
 ## Security
 
-Gophernicus has been written with high security in mind. There should
-be no buffer overflows or memory allocation problems so it should be
-safe to run a publicly available gopher server with Gophernicus.
+Fossor includes security and stability improvements. Like any network
+daemon, it should be run with least privilege and kept updated.
+Report suspected security problems through the project's issue tracker.
 
 However, the security settings (which are non-changeable) are so strict
-that you need to keep one thing in mind. Gophernicus will only serve
+that you need to keep one thing in mind. Fossor will only serve
 world-readable content. Being readable by the server process is not
 enough, all files and directories MUST be world-readable or they are
 simply hidden from all listings and denied if a client asks for them.
@@ -114,7 +114,7 @@ directories (which are normally at `~/public_html/` for each user).
 
 ### OpenBSD-specific Security
 
-If you are running Gophernicus on OpenBSD, you may (depending on what features
+If you are running Fossor on OpenBSD, you may (depending on what features
 you want to use) be able to take advantage of unveil(2) and pledge(2).
 
 If you run without executable map support (i.e. you run with `-nx`) then
@@ -131,11 +131,11 @@ promises are relaxed to allow `exec`. If you have personal gopherspaces enabled
 If you have shared memory enabled (i.e. you run without `-nm`), then pledge(2)
 support cannot be used at all.
 
-In short, you probably want to  run Gophernicus with `-nm -nu -nx` and then
+In short, you probably want to  run Fossor with `-nm -nu -nx` and then
 remove the flags that would otherwise disable the features you want.
 
 To see what is going on with regards to pledge(2) and unveil(2), run
-Gophernicus with `-d` (to turn on debug logging) and look in your system logs.
+Fossor with `-d` (to turn on debug logging) and look in your system logs.
 
 
 ## Gophermaps
@@ -158,7 +158,7 @@ littering the file system with spaces and weird characters.
 
 ## Personal gopherspaces
 
-Gophernicus supports users personal gopherspaces. If a user has
+Fossor supports users personal gopherspaces. If a user has
 world-readable directory called `public_gopher` under his home, a
 request for `gopher://HOSTNAME/1/~user/` will serve documents from
 that directory.
@@ -169,7 +169,7 @@ of user directories will be displayed literally.
 
 ## Virtual hosting
 
-Gophernicus supports virtual hosting, or serving more than one logical
+Fossor supports virtual hosting, or serving more than one logical
 domain using the same IP address. Since gopher (RFC1436) doesn't
 support virtual hosting this requires some hacks.
 
@@ -195,7 +195,7 @@ which forces the correct vhost.
 
 ## CGI support
 
-Gophernicus supports most parts of the CGI/1.1 standard. Most standard
+Fossor supports most parts of the CGI/1.1 standard. Most standard
 CGI variables are set, and some non-standard ones are added.
 
 By default all scripts and binaries under any directory called
@@ -213,7 +213,7 @@ In this case, they will be simply ignored and no output is given.
 
 ## Output filtering and PHP support
 
-In addition to CGI scripts Gophernicus supports output filtering
+In addition to CGI scripts Fossor supports output filtering
 scripts. By default output filtering is turned off, but you can turn
 it on by using the `-f FILTERDIR` option, creating that directory
 and creating one or more scripts in there named by either the file
@@ -229,7 +229,7 @@ For PHP support install the CLI version of the PHP interpreter and
 then symlink (or copy) that binary to the directory specified with
 -f option using the destination name "php".
 
-    $ ln -s /usr/bin/php5-cli /usr/lib/gophernicus/filters/php
+    $ ln -s /usr/bin/php5-cli /usr/lib/fossor/filters/php
 
 After that all files with the php suffix will be "filtered" through
 the PHP command line interpreter. In other words, PHP starts working.
@@ -238,7 +238,7 @@ gopher protocol doesn't have.
 
 ## Charset support and conversions
 
-Gophernicus supports three charsets: US-ASCII, ISO-8859-1 and UTF-8.
+Fossor supports three charsets: US-ASCII, ISO-8859-1 and UTF-8.
 All textual input is internally upconverted to UTF-8 and then
 downconverted to whatever charset the client is asking for. The
 conversion is input autosensing which means that you don't have to
@@ -272,9 +272,9 @@ Examples:
 
 ## Session tracking and statistics
 
-To enable virtual hosting with gopher (RFC1436) clients Gophernicus
+To enable virtual hosting with gopher (RFC1436) clients Fossor
 tracks users and their session. As a side effect of that session
-tracking, Gophernicus has simple throttling controls to keep nasty
+tracking, Fossor has simple throttling controls to keep nasty
 users from killing your precious 120MHz PPC 604e server from dying
 under the load. The throttling defaults are high enough that normal
 human users will never hit the limits, but it's possible (and mostly
@@ -283,30 +283,30 @@ preferrable) that a badly behaving crawling agent will be throttled.
 The current sessions and other real-time status data can be viewed
 by opening the URL `gopher://HOSTNAME/0/server-status` . This status
 view has been modeled after the Apache server-status which means
-that it's possible to integrate Gophernicus into existing server
-monitoring systems. To ease up such integrations, Gophernicus
+that it's possible to integrate Fossor into existing server
+monitoring systems. To ease up such integrations, Fossor
 supports HTTP requests of the server-status page using an URL like
 `http://HOSTNAME:70/server-status?auto` .
 
 ## TLS/SSL and proxy support
 
-As of version 2.3 Gophernicus supports the HAproxy proxy protocol
+As of version 2.3 Fossor supports the HAproxy proxy protocol
 version 1. This makes it possible to build a cluster of gopher servers
 and use HAproxy in front of them all handling client routing to different
 backend servers. By default, PROXY headers are accepted only from a real
 loopback TCP peer (127.0.0.0/8 or ::1). Use `-P ADDRESS` when your trusted
 proxy connects from a different address, or `-np` to disable PROXY support.
 Headers from arbitrary remote peers are rejected. Use a firewall and keep
-Gophernicus itself inaccessible to untrusted direct clients when proxying.
+Fossor itself inaccessible to untrusted direct clients when proxying.
 
-More useful is putting Gophernicus behind Stunnel4 for TLS/SSL support
-and use the same proxy protocol to tell Gophernicus the correct remote IP
+More useful is putting Fossor behind Stunnel4 for TLS/SSL support
+and use the same proxy protocol to tell Fossor the correct remote IP
 address. The below sample stunnel configuration is all you need to
 TLS-enable your gopher server. Well, you'll need a certificate too and for
 that I recommend Let's Encrypt.
 
 In addition to configuring Stunnel for TLS you should add `-T TLSPORT`
-to Gophernicus options so that it knows which connetions are coming in
+to Fossor options so that it knows which connetions are coming in
 encrypted and which are not. Using proper `-T` also makes it possible for
 CGI programs to use the `$TLS` environment variable to know whether the
 current request was encrypted or not.
@@ -314,7 +314,7 @@ current request was encrypted or not.
 Example:
 
     ;
-    ; Gophernicus behind Stunnel4 for gopher over TLS
+    ; Fossor behind Stunnel4 for gopher over TLS
     ;
     
     ; User/group for stunnel daemon
@@ -322,21 +322,21 @@ Example:
     setgid = stunnel4
     
     ; PID file location
-    pid = /var/run/stunnel4/gophernicus.pid
+    pid = /var/run/stunnel4/fossor.pid
     
     ; Log to file, not syslog
-    output = /var/log/stunnel4/gophernicus.log
+    output = /var/log/stunnel4/fossor.log
     syslog = no
     
     ; Certificate in pem format is needed for TLS
-    cert = /etc/ssl/private/gophernicus.pem
+    cert = /etc/ssl/private/fossor.pem
     
     ; Enable TCP wrappers
     libwrap = yes
-    service = gophernicus-tls
+    service = fossor-tls
     
     ; Gopher over TLS service
-    [gophernicus]
+    [fossor]
     accept  = :::7070
     connect = 127.0.0.1:70
     protocol = proxy
