@@ -108,6 +108,23 @@ void parse_args(state *st, int argc, char *argv[])
 		"h:p:T:r:t:g:a:c:u:m:l:w:o:s:i:k:f:e:R:D:L:A:P:n:dbv?-")) != ERROR) {
 		switch(opt) {
 			case 'h': sstrlcpy(st->server_host, optarg); break;
+			case 'P':
+				/* Only enable PROXY v1 for this explicitly trusted peer. */
+				if (strlen(optarg) >= sizeof(st->proxy_peer)) {
+					fputs("Invalid trusted proxy address\n", stderr);
+					exit(EXIT_FAILURE);
+				}
+				{
+					struct in6_addr parsed;
+					if (inet_pton(AF_INET, optarg, &parsed) != 1 &&
+						inet_pton(AF_INET6, optarg, &parsed) != 1) {
+						fputs("Invalid trusted proxy address\n", stderr);
+						exit(EXIT_FAILURE);
+					}
+				}
+				sstrlcpy(st->proxy_peer, optarg);
+				st->opt_proxy = TRUE;
+				break;
 			case 'p': st->server_port = atoi(optarg); break;
 			case 'T': st->server_tls_port = atoi(optarg); break;
 			case 'r': sstrlcpy(st->server_root, optarg); break;

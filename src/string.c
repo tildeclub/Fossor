@@ -28,6 +28,7 @@
 
 
 #include "gophernicus.h"
+#include <ctype.h>
 
 
 /*
@@ -244,28 +245,22 @@ void strnencode(char *out, const char *in, size_t outsize)
 {
 	unsigned char c;
 
-	/* Loop through the input string */
-	while (--outsize) {
+	if (outsize == 0) return;
 
-		/* End of source? */
-		if (!(c = *in++)) break;
-
-		/* Need to encode the char? */
+	/* Account for all four bytes of each #OCT escape, not just the input. */
+	while (*in && outsize > 1) {
+		c = (unsigned char)*in++;
 		if (c < '+' || c > '~') {
-
-			/* Can we fit the encoded version into outbuffer? */
 			if (outsize < 5) break;
-
-			/* Output encoded char */
 			snprintf(out, outsize, "#%.3o", c);
 			out += 4;
+			outsize -= 4;
+		} else {
+			*out++ = (char)c;
+			outsize--;
 		}
-
-		/* Copy regular chars */
-		else *out++ = c;
 	}
 
-	/* Zero-terminate output */
 	*out = '\0';
 }
 
@@ -278,33 +273,36 @@ void strndecode(char *out, char *in, size_t outsize)
 	unsigned char c;
 	unsigned int i;
 
-	/* Loop through the input string */
+	if (outsize == 0) return;
+
+	/* A malformed or NUL escape remains literal. */
 	while (--outsize) {
+		if (!(c = (unsigned char)*in++)) break;
 
-		/* End of source? */
-		if (!(c = *in++)) break;
-
-		/* Parse %hex encoding */
-		if (c == '%' && strlen(in) >= 2) {
-			sscanf(in, "%2x", &i);
-			*out++ = i;
-			in += 2;
-			continue;
+		if (c == '%' && strlen(in) >= 2 &&
+			isxdigit((unsigned char)in[0]) &&
+			isxdigit((unsigned char)in[1])) {
+			if (sscanf(in, "%2x", &i) == 1 && i != 0) {
+				*out++ = (char)i;
+				in += 2;
+				continue;
+			}
 		}
 
-		/* Parse #octal encoding */
-		if (c == '#' && strlen(in) >= 3) {
-			sscanf(in, "%3o", &i);
-			*out++ = i;
-			in += 3;
-			continue;
+		if (c == '#' && strlen(in) >= 3 &&
+			in[0] >= '0' && in[0] <= '7' &&
+			in[1] >= '0' && in[1] <= '7' &&
+			in[2] >= '0' && in[2] <= '7') {
+			if (sscanf(in, "%3o", &i) == 1 && i != 0 && i <= 255) {
+				*out++ = (char)i;
+				in += 3;
+				continue;
+			}
 		}
 
-		/* Copy non-encoded chars */
-		*out++ = c;
+		*out++ = (char)c;
 	}
 
-	/* Zero-terminate output */
 	*out = '\0';
 }
 

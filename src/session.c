@@ -135,12 +135,14 @@ void update_shm_session(state *st, shm_state *shm)
 	shm->session[i].kbytes += st->req_filesize / 1024;
 
 	/* Transfer limits exceeded? */
-	if ((st->session_max_kbytes && shm->session[i].kbytes > st->session_max_kbytes) ||
-		(st->session_max_hits && shm->session[i].hits > st->session_max_hits)) {
+	if ((st->session_max_kbytes > 0 && shm->session[i].kbytes > st->session_max_kbytes) ||
+		(st->session_max_hits > 0 && shm->session[i].hits > st->session_max_hits)) {
 
-		/* Calculate throttle delay */
-		delay = max(shm->session[i].kbytes / st->session_max_kbytes,
-			shm->session[i].hits / st->session_max_hits);
+		/* A zero limit disables that quota, not the other quota. */
+		delay = max(st->session_max_kbytes > 0 ?
+			shm->session[i].kbytes / st->session_max_kbytes : 0,
+			st->session_max_hits > 0 ?
+			shm->session[i].hits / st->session_max_hits : 0);
 
 		/* Throttle user */
 		log_info("throttling user from %s for %i seconds",

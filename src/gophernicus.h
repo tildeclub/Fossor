@@ -325,6 +325,7 @@ typedef struct {
     char server_root[256];
     char server_host_default[64];
     char server_host[64];
+    char proxy_peer[64]; /* Trusted source IP for PROXY v1 headers */
     int  server_port;
     int  server_tls_port;
 

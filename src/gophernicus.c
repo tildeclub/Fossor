@@ -109,22 +109,29 @@ void footer(state *st)
 
 void html_encode(const char *unsafe, char *dest, int bufsize)
 {
-	char literals[] = "!#$&'()*+,/:;=?@[]-_.~";
-	int i = 0, j = 0;
-	while (unsafe[i] != '\0') {
-		if (j >= bufsize - 5) {
-			break;
-		}
-		if (strchr(literals, unsafe[i]) ||
-			(unsafe[i] >= 'a' && unsafe[i] <= 'z') ||
-			(unsafe[i] >= 'A' && unsafe[i] <= 'Z') ||
-			(unsafe[i] >= '0' && unsafe[i] <= '9')) {
-			dest[j] = unsafe[i];
-			i += 1;
-			j += 1;
+	static const char literals[] = "!#$&'()*+,/:;=?@[]-_.~";
+	static const char hex[] = "0123456789abcdef";
+	size_t i = 0, j = 0;
+	size_t size;
+	unsigned char c;
+
+	if (bufsize <= 0 || dest == NULL) return;
+	dest[0] = '\0';
+	if (unsafe == NULL) return;
+	size = (size_t)bufsize;
+
+	while ((c = (unsigned char)unsafe[i++]) != '\0') {
+		if (strchr(literals, c) ||
+			(c >= 'a' && c <= 'z') ||
+			(c >= 'A' && c <= 'Z') ||
+			(c >= '0' && c <= '9')) {
+			if (size - j <= 1) break;
+			dest[j++] = (char)c;
 		} else {
-			j += snprintf(&dest[j], BUFSIZE - j, "%%%02x", unsafe[i]);
-			i += 1;
+			if (size - j <= 3) break;
+			dest[j++] = '%';
+			dest[j++] = hex[c >> 4];
+			dest[j++] = hex[c & 15];
 		}
 	}
 	dest[j] = '\0';
@@ -217,6 +224,97 @@ void log_combined(state *st, int status)
 
 
 /*
+ * Check the final target (including symlinks) against its selected document root.
+ * Resolve the requested path once, and use that result for subsequent opens.
+ */
+static void restrict_to_root(state *st, const char *root)
+{
+	char resolved_root[PATH_MAX];
+	char resolved_path[PATH_MAX];
+	size_t len;
+
+	if (realpath(root, resolved_root) == NULL ||
+		realpath(st->req_realpath, resolved_path) == NULL)
+		die(st, ERR_ACCESS, "Unable to resolve requested path");
+
+	len = strlen(resolved_root);
+	if (strncmp(resolved_root, resolved_path, len) != 0 ||
+		(len != 1 && resolved_path[len] != '/' && resolved_path[len] != '\0'))
+		die(st, ERR_ACCESS, "Requested path escapes document root");
+
+	if (strlen(resolved_path) >= sizeof(st->req_realpath))
+		die(st, ERR_ACCESS, "Resolved path is too long");
+
+	sstrlcpy(st->req_realpath, resolved_path);
+}
+
+/*
+ * Reject path separators and hidden directories in client-supplied vhost names.
+ */
+static int valid_vhost(const char *host)
+{
+	const unsigned char *p = (const unsigned char *)host;
+
+	if (*p == '\0' || *p == '.') return FALSE;
+	for (; *p; p++) {
+		if (!((*p >= 'a' && *p <= 'z') ||
+			(*p >= 'A' && *p <= 'Z') ||
+			(*p >= '0' && *p <= '9') ||
+			*p == '.' || *p == '-' || *p == '_' ||
+			*p == ':' || *p == '[' || *p == ']'))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+/*
+ * Only a TCP peer on loopback, or a peer explicitly selected with -P,
+ * may assert a different client address in the PROXY protocol header.
+ * Always query the socket: REMOTE_ADDR is an environment variable, not proof.
+ */
+#ifdef ENABLE_HAPROXY1
+static int trusted_proxy_peer(const state *st)
+{
+	struct sockaddr_storage peer;
+	socklen_t len = sizeof(peer);
+	struct in_addr ip4;
+	struct in6_addr ip6;
+	const struct in_addr *actual4;
+	const struct in6_addr *actual6;
+
+	if (getpeername(STDIN_FILENO, (struct sockaddr *)&peer, &len) != 0)
+		return FALSE;
+
+	if (peer.ss_family == AF_INET) {
+		actual4 = &((struct sockaddr_in *)&peer)->sin_addr;
+		if (!*st->proxy_peer)
+			return (ntohl(actual4->s_addr) & 0xff000000U) == 0x7f000000U;
+		return inet_pton(AF_INET, st->proxy_peer, &ip4) == 1 &&
+			memcmp(actual4, &ip4, sizeof(ip4)) == 0;
+	}
+
+	if (peer.ss_family != AF_INET6) return FALSE;
+	actual6 = &((struct sockaddr_in6 *)&peer)->sin6_addr;
+
+	/* IPv4-mapped IPv6 sockets must respect the same IPv4 trust policy. */
+	if (IN6_IS_ADDR_V4MAPPED(actual6)) {
+		memcpy(&ip4, &actual6->s6_addr[12], sizeof(ip4));
+		if (!*st->proxy_peer)
+			return (ntohl(ip4.s_addr) & 0xff000000U) == 0x7f000000U;
+		{
+			struct in_addr configured4;
+			if (inet_pton(AF_INET, st->proxy_peer, &configured4) == 1)
+				return memcmp(&ip4, &configured4, sizeof(ip4)) == 0;
+		}
+	}
+
+	if (!*st->proxy_peer) return IN6_IS_ADDR_LOOPBACK(actual6);
+	return inet_pton(AF_INET6, st->proxy_peer, &ip6) == 1 &&
+		memcmp(actual6, &ip6, sizeof(ip6)) == 0;
+}
+#endif
+
+/*
  * Convert gopher selector to an absolute path
  */
 static void selector_to_path(state *st)
@@ -280,6 +378,9 @@ static void selector_to_path(state *st)
 		if (file.st_uid != pwd->pw_uid)
 			die(st, ERR_ACCESS, "~/ and ~/public_gopher owned by different users");
 
+		/* Permit user-owned content linked from elsewhere in the same home. */
+		restrict_to_root(st, pwd->pw_dir);
+
 		/* Userdirs always come from the default vhost */
 		if (st->opt_vhost)
 			sstrlcpy(st->server_host, st->server_host_default);
@@ -293,7 +394,11 @@ static void selector_to_path(state *st)
 		/* Try looking for the selector from the current vhost */
 		snprintf(st->req_realpath, sizeof(st->req_realpath), "%s/%s%s",
 			st->server_root, st->server_host, st->req_selector);
-		if (stat(st->req_realpath, &file) == OK) return;
+		if (stat(st->req_realpath, &file) == OK) {
+			snprintf(buf, sizeof(buf), "%s/%s", st->server_root, st->server_host);
+			restrict_to_root(st, buf);
+			return;
+		}
 
 		/* Loop through all vhosts looking for the selector */
 		if ((dp = opendir(st->server_root)) == NULL)
@@ -314,7 +419,10 @@ static void selector_to_path(state *st)
 			if (stat(st->req_realpath, &file) == OK) {
 
 				/* Virtual host found - update state & return */
+				snprintf(buf, sizeof(buf), "%s/%s", st->server_root, dir->d_name);
+				restrict_to_root(st, buf);
 				sstrlcpy(st->server_host, dir->d_name);
+				closedir(dp);
 				return;
 			}
 		}
@@ -324,6 +432,8 @@ static void selector_to_path(state *st)
 	/* Handle normal selectors */
 	snprintf(st->req_realpath, sizeof(st->req_realpath),
 		"%s%s", st->server_root, st->req_selector);
+	if (stat(st->req_realpath, &file) == OK)
+		restrict_to_root(st, st->server_root);
 }
 
 
@@ -493,7 +603,8 @@ static void init_state(state *st)
 	st->opt_status = TRUE;
 	st->opt_shm = TRUE;
 	st->opt_root = TRUE;
-	st->opt_proxy = TRUE;
+	st->opt_proxy = TRUE; /* Only loopback peers by default; see -P */
+	strclear(st->proxy_peer);
 	st->opt_exec = TRUE;
 	st->opt_personal_spaces = TRUE;
 	st->opt_http_requests = TRUE;
@@ -529,9 +640,12 @@ int main(int argc, char *argv[])
 	int shmid = -1;
 #endif
 #ifdef ENABLE_HAPROXY1
-	char remote[BUFSIZE];
-	char local[BUFSIZE];
-	int dummy;
+	char remote[64];
+	char local[64];
+	struct in6_addr parsed_addr;
+	int proto_family, source_port, destination_port, address_family;
+	int proxy_header_seen = FALSE;
+	char trailing;
 #endif
 #ifdef __OpenBSD__
 	char pledges[256];
@@ -701,19 +815,32 @@ get_selector:
 
 	log_debug("client sent \"%s\"", selector);
 
-	/* Handle HAproxy/Stunnel proxy protocol v1 */
+	/* Only the explicitly trusted proxy can supply client addresses. */
 #ifdef ENABLE_HAPROXY1
-	if (sstrncmp(selector, "PROXY TCP") == MATCH && st.opt_proxy) {
-		log_debug("got proxy protocol header \"%s\"", selector);
+	if (sstrncmp(selector, "PROXY ") == MATCH && st.opt_proxy) {
+		if (proxy_header_seen || !trusted_proxy_peer(&st))
+			die(&st, ERR_ACCESS, "Untrusted or repeated PROXY header");
+		proxy_header_seen = TRUE;
 
-		sscanf(selector, "PROXY TCP%d %s %s %d %d",
-			&dummy, remote, local, &dummy, &st.server_port);
+		if (strcmp(selector, "PROXY UNKNOWN") == MATCH)
+			goto get_selector;
 
-		/* Strip ::ffff: IPv4-in-IPv6 prefix and override old addresses */
+		if (sscanf(selector, "PROXY TCP%d %63s %63s %d %d %c",
+			&proto_family, remote, local, &source_port,
+			&destination_port, &trailing) != 5 ||
+			(proto_family != 4 && proto_family != 6) ||
+			source_port < 1 || source_port > 65535 ||
+			destination_port < 1 || destination_port > 65535)
+			die(&st, ERR_ACCESS, "Malformed PROXY protocol header");
+
+		address_family = (proto_family == 4) ? AF_INET : AF_INET6;
+		if (inet_pton(address_family, remote, &parsed_addr) != 1 ||
+			inet_pton(address_family, local, &parsed_addr) != 1)
+			die(&st, ERR_ACCESS, "Malformed PROXY protocol address");
+
+		st.server_port = destination_port;
 		sstrlcpy(st.req_local_addr, local + ((sstrncmp(local, "::ffff:") == MATCH) ? 7 : 0));
 		sstrlcpy(st.req_remote_addr, remote + ((sstrncmp(remote, "::ffff:") == MATCH) ? 7 : 0));
-
-		/* My precious \o/ */
 		goto get_selector;
 	}
 #endif
@@ -773,6 +900,8 @@ get_selector:
 
 	/* Parse ;vhost from selector */
 	if (st.opt_vhost && (c = strchr(selector, ';'))) {
+		if (strlen(c + 1) >= sizeof(st.server_host))
+			die(&st, ERR_ACCESS, "Virtual host name is too long");
 		sstrlcpy(st.server_host, c + 1);
 		*c = '\0';
 	}
@@ -811,8 +940,9 @@ get_selector:
 	}
 #endif
 
-	/* Remove possible extra cruft from server_host */
-	if ((c = strchr(st.server_host, '\t'))) *c = '\0';
+	/* A virtual host is a single directory name, never a filesystem path. */
+	if (st.opt_vhost && !valid_vhost(st.server_host))
+		die(&st, ERR_ACCESS, "Invalid virtual host");
 
 	/* Guess request filetype so we can die() with style... */
 	st.req_filetype = gopher_filetype(&st, st.req_selector, FALSE);

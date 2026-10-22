@@ -109,18 +109,20 @@ static void userlist(state *st)
 	struct passwd *pwd;
 	struct stat dir;
 	char buf[BUFSIZE];
-	user_date users[MAX_USERS];
+	user_date *users = NULL;
 	struct tm *ltime;
 	char timestr[20];
+	size_t count = 0, capacity = 0, i;
 	int width;
 
 	/* Width of filenames for fancy listing */
 	width = st->out_width - DATE_WIDTH - 15;
 
-	/* Loop through all users */
+	/* Loop through all users, without a fixed-size stack array. */
 	setpwent();
-	int i = 0;
 	while ((pwd = getpwent())) {
+		user_date *grown;
+		size_t new_capacity;
 
 		/* Skip too small uids */
 		if (pwd->pw_uid < PASSWD_MIN_UID) continue;
@@ -130,24 +132,34 @@ static void userlist(state *st)
 		if (stat(buf, &dir) == ERROR) continue;
 		if ((dir.st_mode & S_IROTH) == 0) continue;
 		if (dir.st_uid != pwd->pw_uid) continue;
+		if (strlen(pwd->pw_name) >= sizeof(users[0].user)) continue;
 
-		/* Found one */
-		strcpy(users[i].user, pwd->pw_name);
-		users[i].mtime = dir.st_mtime;
-		i++;
+		if (count == capacity) {
+			new_capacity = capacity ? capacity * 2 : MAX_USERS;
+			if (new_capacity < capacity ||
+				new_capacity > ((size_t)-1) / sizeof(*users)) {
+				log_warning("user directory listing exceeds addressable memory");
+				break;
+			}
+			grown = realloc(users, new_capacity * sizeof(*users));
+			if (grown == NULL) {
+				log_warning("out of memory building user directory listing");
+				break;
+			}
+			users = grown;
+			capacity = new_capacity;
+		}
+
+		sstrlcpy(users[count].user, pwd->pw_name);
+		users[count].mtime = dir.st_mtime;
+		count++;
 	}
+	endpwent();
 
-	/* Sort by date */
-	int true_length = 0;
-	while((users[true_length].user[0] != '\0') && (true_length < MAX_USERS)) true_length++;
-	qsort((void*)users, true_length, sizeof(users[0]), datesort);
+	/* Sort only initialized entries. */
+	if (count > 1) qsort(users, count, sizeof(*users), datesort);
 
-	/* Loop over the found users */
-	for(
-			i = 0;
-			((i < MAX_USERS) && (users[i].user[0] != '\0'));
-			i++)
-	{
+	for (i = 0; i < count; i++) {
 		/* Format the user string */
 		snprintf(buf, sizeof(buf), USERDIR_FORMAT);
 
@@ -165,8 +177,7 @@ static void userlist(state *st)
 			    users[i].user, st->server_host_default, st->server_port);
 		}
 	}
-
-	endpwent();
+	free(users);
 }
 #endif
 
@@ -296,6 +307,34 @@ char gopher_filetype(state *st, char *file, char magic)
 
 
 /*
+ * Quote an executable map filename as a single shell argument. The existing
+ * '=' gophermap directive is a separate, intentionally explicit shell include.
+ */
+static int quote_map_filename(const char *name, char *dest, size_t cap)
+{
+	size_t n = 0;
+
+	if (cap < 3) return FALSE;
+	dest[n++] = 39; /* single quote */
+	while (*name) {
+		if (*name == 39) {
+			if (cap - n < 6) return FALSE;
+			dest[n++] = 39;
+			dest[n++] = '\\';
+			dest[n++] = 39;
+			dest[n++] = 39;
+		} else {
+			if (cap - n < 3) return FALSE;
+			dest[n++] = *name;
+		}
+		name++;
+	}
+	dest[n++] = 39;
+	dest[n] = '\0';
+	return TRUE;
+}
+
+/*
  * Handle gophermaps
  */
 static int gophermap(state *st, char *mapfile, int depth)
@@ -322,8 +361,9 @@ static int gophermap(state *st, char *mapfile, int depth)
 	if (stat(mapfile, &file) == OK) {
 		if ((file.st_mode & S_IXOTH)) {
 #ifdef HAVE_POPEN
-			/* Quote the command in case path has spaces */
-			snprintf(command, sizeof(command), "'%s'", mapfile);
+			/* Embedded quotes must not turn a filename into shell code. */
+			if (!quote_map_filename(mapfile, command, sizeof(command)))
+				return OK;
 #endif
 			exe = TRUE;
 		}

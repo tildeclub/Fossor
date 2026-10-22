@@ -24,6 +24,7 @@
 .Op Fl R Ar old Ns = Ns Ar new Oo Fl R Ar old Ns = Ns Ar new Oc ...
 .Op Fl D Ar text
 .Op Fl L Ar text
+.Op Fl P Ar address
 .Op Fl U Ar paths
 .Op Fl nv
 .Op Fl nl
@@ -147,6 +148,11 @@ looks like a filename (starts with a /), use the contents of the file.
 .It Fl A Ar email
 Set the email of the administrator to appear in
 .Pa /caps.txt .
+.It Fl P Ar address
+Accept PROXY protocol v1 headers only from the specified source IP address.
+By default, only a real loopback TCP peer can send a PROXY header. Use
+.Fl np
+to disable proxy support entirely. Do not specify an untrusted address.
 .It Fl U Ar paths
 Set a colon-separated list of extra
 .Xr unveil 2

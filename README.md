@@ -50,6 +50,7 @@ are made.
     -D text|file  Set or load server description for caps.txt
     -L text|file  Set or load server location for caps.txt
     -A admin      Set admin email for caps.txt
+    -P address    Trust PROXY protocol v1 from this peer (loopback by default)
 
     -U paths      Specify a colon-separated list of extra unveil(2) paths
                   (OpenBSD only).
@@ -291,7 +292,11 @@ supports HTTP requests of the server-status page using an URL like
 As of version 2.3 Gophernicus supports the HAproxy proxy protocol
 version 1. This makes it possible to build a cluster of gopher servers
 and use HAproxy in front of them all handling client routing to different
-backend servers.
+backend servers. By default, PROXY headers are accepted only from a real
+loopback TCP peer (127.0.0.0/8 or ::1). Use `-P ADDRESS` when your trusted
+proxy connects from a different address, or `-np` to disable PROXY support.
+Headers from arbitrary remote peers are rejected. Use a firewall and keep
+Gophernicus itself inaccessible to untrusted direct clients when proxying.
 
 More useful is putting Gophernicus behind Stunnel4 for TLS/SSL support
 and use the same proxy protocol to tell Gophernicus the correct remote IP
