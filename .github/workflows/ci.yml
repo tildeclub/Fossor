@@ -23,10 +23,26 @@ jobs:
           - runner: ubuntu-24.04
             compiler: clang
             listener: systemd,inetd,xinetd
+          # Newer Ubuntu and compiler toolchains, including native ARM64.
+          - runner: ubuntu-26.04
+            compiler: gcc
+            listener: systemd,inetd,xinetd
+          - runner: ubuntu-26.04
+            compiler: clang
+            listener: systemd,inetd,xinetd
+          - runner: ubuntu-26.04-arm
+            compiler: gcc
+            listener: systemd,inetd,xinetd
           - runner: macos-15-intel
             compiler: clang
             listener: mac
           - runner: macos-15
+            compiler: clang
+            listener: mac
+          - runner: macos-26-intel
+            compiler: clang
+            listener: mac
+          - runner: macos-26
             compiler: clang
             listener: mac
     env:

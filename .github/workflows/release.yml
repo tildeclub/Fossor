@@ -18,6 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Keep release builds on older supported runners for compatibility.
+        # Newer OS versions are covered by the CI workflow.
         include:
           - name: linux-x86_64
             runner: ubuntu-24.04

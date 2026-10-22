@@ -3,8 +3,9 @@
 GitHub Actions replaces the old Travis setup.
 
 - **CI:** runs for pushes to `master`, pull requests and manual dispatch. It
-  builds with GCC and Clang on Ubuntu, and Clang on Intel and Apple Silicon
-  macOS. The smoke test runs without installing the server or requiring root.
+  builds with GCC and Clang on Ubuntu 24.04 and 26.04 (x86-64), GCC on Ubuntu
+  26.04 ARM64, and Clang on macOS 15 and 26 (Intel and Apple Silicon). The
+  smoke test runs without installing the server or requiring root.
 - **Release binaries:** runs when a GitHub Release is **published**, including
   a published prerelease. It checks out the release tag, builds on four native
   runners, runs the smoke tests, and attaches the resulting `.tar.gz` archives
@@ -21,6 +22,10 @@ GitHub Actions replaces the old Travis setup.
 3. The `Release binaries` workflow attaches four archives:
    Linux x86-64, Linux ARM64, macOS Intel and macOS Apple Silicon. GitHub
    supplies its standard source archives separately.
+
+Release binaries intentionally stay on Ubuntu 24.04 (x86-64 and ARM64) and
+macOS 15 (Intel and Apple Silicon) to avoid unnecessarily raising the minimum
+runtime requirements. Newer operating systems are tested by CI instead.
 
 The binary version is derived from the release tag **in the build workspace**;
 the workflow does not commit changes to the repository. Keep the version in
